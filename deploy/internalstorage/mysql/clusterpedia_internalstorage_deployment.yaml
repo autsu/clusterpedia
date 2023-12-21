@@ -25,6 +25,7 @@ spec:
     matchLabels:
       app: clusterpedia-internalstorage
       internalstorage.clusterpedia.io/type: mysql
+  storageClassName: ""
 ---
 apiVersion: apps/v1
 kind: Deployment

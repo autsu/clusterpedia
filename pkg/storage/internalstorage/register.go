@@ -29,6 +29,7 @@ func init() {
 	storage.RegisterStorageFactoryFunc(StorageName, NewStorageFactory)
 }
 
+// NewStorageFactory 根据 cfg 建立对应的数据库连接
 func NewStorageFactory(configPath string) (storage.StorageFactory, error) {
 	if configPath == "" {
 		return nil, fmt.Errorf("configPath should not be empty")
