@@ -87,7 +87,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 		c.name,
 		c.config.ListerWatcher,
 		c.config.ObjectType,
-		c.config.Queue,
+		c.config.Queue, // 这里实际传入的是一个 DeltaFIFO
 		c.config.FullResyncPeriod,
 	)
 	if c.config.WatchErrorHandler != nil {
@@ -103,6 +103,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	c.reflectorMutex.Unlock()
 
 	var wg wait.Group
+	// StartWithChannel 会开一个 goroutine 来执行传入的 func
 	wg.StartWithChannel(stopCh, r.Run)
 
 	wait.Until(c.processLoop, time.Second, stopCh)
