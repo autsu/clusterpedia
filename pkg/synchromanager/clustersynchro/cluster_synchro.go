@@ -59,6 +59,7 @@ type ClusterSynchro struct {
 	storageResourceVersions map[schema.GroupVersionResource]map[string]interface{}
 	storageResourceSynchros sync.Map
 
+	// 保存所有要同步的资源 (clusterv1alpha2.ClusterGroupResources)
 	syncResources       atomic.Value // []clusterv1alpha2.ClusterGroupResources
 	setSyncResourcesCh  chan struct{}
 	resourceNegotiator  *ResourceNegotiator
@@ -97,6 +98,7 @@ func New(name string, config *rest.Config, storage storage.StorageFactory, updat
 			KeepAlive: 30 * time.Second,
 		}).DialContext
 	}
+	// 根据 config 创建一个 discovery client 用作集群健康检查
 	healthChecker, err := newHealthChecker(&checkerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a cluster health checker: %w", err)
@@ -128,6 +130,7 @@ func New(name string, config *rest.Config, storage storage.StorageFactory, updat
 		ResourceMutationHandler: synchro.resetSyncResources,
 		AfterStartFunc: func(_ <-chan struct{}) {
 			refresherOnce.Do(func() {
+				// 同步集群资源
 				go synchro.syncResourcesRefresher()
 			})
 		},
@@ -186,6 +189,7 @@ func (s *ClusterSynchro) initWithResourceVersions(resourceversions map[schema.Gr
 	}
 }
 
+// Run 会执行：集群健康检查
 func (s *ClusterSynchro) Run(shutdown <-chan struct{}) {
 	runningCondition := metav1.Condition{
 		Type:               clusterv1alpha2.SynchroRunningCondition,
@@ -196,6 +200,7 @@ func (s *ClusterSynchro) Run(shutdown <-chan struct{}) {
 	}
 	s.runningCondition.Store(runningCondition)
 
+	// 运行健康检查
 	s.waitGroup.Start(s.monitor)
 	s.waitGroup.Start(s.runner)
 
@@ -311,6 +316,7 @@ func (s *ClusterSynchro) syncResourcesRefresher() {
 }
 
 func (s *ClusterSynchro) refreshSyncResources() {
+	// 拿到要同步的所有资源类型
 	syncResources := s.syncResources.Load().([]clusterv1alpha2.ClusterGroupResources)
 	if syncResources == nil {
 		return

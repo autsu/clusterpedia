@@ -19,6 +19,7 @@ func (synchro *ClusterSynchro) monitor() {
 	klog.InfoS("cluster synchro monitor is running...", "cluster", synchro.name)
 	defer klog.InfoS("cluster synchro monitor is stoped", "cluster", synchro.name)
 
+	// 每 5 秒进行一次健康检查
 	wait.JitterUntil(synchro.checkClusterHealthy, 5*time.Second, 0.5, true, synchro.closer)
 
 	healthyCondition := metav1.Condition{
@@ -106,6 +107,7 @@ func newHealthChecker(config *rest.Config) (*healthChecker, error) {
 
 // TODO(iceber): resolve for more detailed error
 func (checker *healthChecker) Ready(ctx context.Context) (bool, error) {
+	// 请求当前集群的 apiserver 来进行健康检查
 	_, err := checker.client.Get().AbsPath("/readyz").DoRaw(ctx)
 	if apierrors.IsNotFound(err) {
 		_, err = checker.client.Get().AbsPath("/healthz").DoRaw(ctx)
