@@ -55,13 +55,17 @@ func (negotiator *ResourceNegotiator) NegotiateSyncResources(syncResources []clu
 		}
 
 		for _, resource := range syncResource.Resources {
+			// 处理为 * 的情况，此时会同步改 group 下的所有资源
 			if resource == "*" {
+				// 从 DynamicDiscoveryManager.resourceVersions 中获取指定 group 下的所有 resource，
+				// 最终构成一个 ClusterGroupResources 对象并返回
 				syncResourcesByGroup := negotiator.dynamicDiscovery.GetGroupResourcesAsSyncResources(syncResource.Group)
 				if syncResourcesByGroup == nil {
 					syncResources[i].Resources = nil
 					klog.InfoS("Skip resource sync", "cluster", negotiator.name, "group", syncResource.Group, "reason", "not match group")
 				} else {
 					syncResourcesByGroup.Versions = syncResource.Versions
+					// 最后用拿到的 ClusterGroupResources 来填充 syncResources[i]
 					syncResources[i] = *syncResourcesByGroup
 					if groupType == discovery.KubeResource {
 						watchKubeVersion = true

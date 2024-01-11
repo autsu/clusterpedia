@@ -202,6 +202,7 @@ func (s *ClusterSynchro) Run(shutdown <-chan struct{}) {
 
 	// 运行健康检查
 	s.waitGroup.Start(s.monitor)
+	// 执行 dynamicDiscovery.Start -> synchro.syncResourcesRefresher()
 	s.waitGroup.Start(s.runner)
 
 	go func() {

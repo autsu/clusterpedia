@@ -26,6 +26,8 @@ type ResourcesInterface interface {
 	GetAPIResourceAndVersions(resource schema.GroupResource) (*metav1.APIResource, []string)
 
 	GetAllResourcesAsSyncResources() []clusterv1alpha2.ClusterGroupResources
+	// GetGroupResourcesAsSyncResources 从 DynamicDiscoveryManager.resourceVersions 中获取指定 group 下的所有 resource，
+	// 最终构成一个 ClusterGroupResources 对象并返回
 	GetGroupResourcesAsSyncResources(group string) *clusterv1alpha2.ClusterGroupResources
 
 	AttachAllCustomResourcesToSyncResources(resources []clusterv1alpha2.ClusterGroupResources) []clusterv1alpha2.ClusterGroupResources
@@ -51,6 +53,9 @@ func (c *DynamicDiscoveryManager) reconcileAPIServices(apiservices []*apiregistr
 	groupVersions := make(map[string][]string)
 	aggregatorGroups := sets.Set[string]{}
 
+	// SortedByGroupAndVersion 将 APIServices 分类到不同的组中，然后根据版本对其进行排序。
+	// 例如，第一个数组的第一个元素包含版本号最高的APIService，在最高优先级的组中；而最后一个数
+	// 组的最后一个元素包含版本号最低的 APIService，属于优先级最低的组。
 	apiServicesByGroup := apiregistrationv1helper.SortedByGroupAndVersion(apiservices)
 	for _, groupServices := range apiServicesByGroup {
 		apiServicesByGroup := apiregistrationv1helper.SortedByGroupAndVersion(groupServices)[0]
@@ -469,6 +474,8 @@ func (c *DynamicDiscoveryManager) GetAllResourcesAsSyncResources() []clusterv1al
 	return syncResources
 }
 
+// GetGroupResourcesAsSyncResources 从 DynamicDiscoveryManager.resourceVersions 中获取指定 group 下的所有 resource，
+// 最终构成一个 ClusterGroupResources 对象并返回
 func (c *DynamicDiscoveryManager) GetGroupResourcesAsSyncResources(group string) *clusterv1alpha2.ClusterGroupResources {
 	c.cacheLock.RLock()
 	defer c.cacheLock.RUnlock()

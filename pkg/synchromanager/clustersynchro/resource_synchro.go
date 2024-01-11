@@ -53,19 +53,23 @@ type ResourceSynchro struct {
 	syncResource    schema.GroupVersionResource
 	storageResource schema.GroupVersionResource
 
-	pageSize          int64
+	pageSize int64
+	// listerWatcher 接口，resourceVersionInformer 需要用这个来 ListAndWatch
 	listerWatcher     cache.ListerWatcher
 	metricsExtraStore informer.ExtraStore
 	metricsWriter     *metricsstore.MetricsWriter
 
+	// push：resourceVersionInformer.HandleDeltas -> ResourceSynchro.OnAdd/OnUpdate/OnDelete 最终 push 到这里
+	// pop: ResourceSynchro.processResources 执行
 	queue   queue.EventQueue
 	cache   *informer.ResourceVersionStorage
 	rvs     map[string]interface{}
 	rvsLock sync.Mutex
 
 	memoryVersion schema.GroupVersion
-	storage       storage.ResourceStorage
-	convertor     runtime.ObjectConvertor
+	// 抽象出来的存储接口，负责 CRUD 资源落库
+	storage   storage.ResourceStorage
+	convertor runtime.ObjectConvertor
 
 	status atomic.Value // clusterv1alpha2.ClusterResourceSyncCondition
 
@@ -130,6 +134,7 @@ func newResourceSynchro(cluster string, config ResourceSynchroConfig) *ResourceS
 	return synchro
 }
 
+// Run 会不断从 queue 里面 pop 元素并处理，主要就是把这些元素落库
 func (synchro *ResourceSynchro) Run(shutdown <-chan struct{}) {
 	defer close(synchro.closed)
 	go func() {
@@ -144,6 +149,7 @@ func (synchro *ResourceSynchro) Run(shutdown <-chan struct{}) {
 	close(synchro.stopped)
 
 	synchro.runningStage = "running"
+	// 处理队列
 	wait.Until(func() {
 		synchro.processResources()
 	}, time.Second, synchro.closer)
@@ -167,6 +173,9 @@ func (synchro *ResourceSynchro) Close() <-chan struct{} {
 	return synchro.closed
 }
 
+// Start 主要是执行 informer.NewResourceVersionInformer(synchro.cluster, config).Run(informerStopCh)
+// 让 informer 跑起来，这个 informer 会根据传入的 ListerWatcher 来 ListAndWatch 集群资源，然后会把拿到的资源
+// 扔到 ResourceSynchro 的 queue 里面
 func (synchro *ResourceSynchro) Start(stopCh <-chan struct{}) {
 	synchro.startlock.Lock()
 	stopped := synchro.stopped // avoid race
@@ -359,6 +368,7 @@ func (synchro *ResourceSynchro) OnDelete(obj interface{}) {
 
 func (synchro *ResourceSynchro) OnSync(obj interface{}) {}
 
+// 从 queue 中 pop 元素并处理
 func (synchro *ResourceSynchro) processResources() {
 	for {
 		select {
@@ -381,6 +391,7 @@ func (synchro *ResourceSynchro) processResources() {
 	}
 }
 
+// 根据 event 类型，执行对应的 CRUD 操作
 func (synchro *ResourceSynchro) handleResourceEvent(event *queue.Event) {
 	defer func() { _ = synchro.queue.Done(event) }()
 

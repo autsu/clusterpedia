@@ -34,10 +34,12 @@ type DynamicDiscoveryInterface interface {
 type DynamicDiscoveryManager struct {
 	name      string
 	discovery discovery.DiscoveryInterface
-	version   atomic.Value // version.Info
+	// 保存 k8s server.version
+	version atomic.Value // version.Info
 
 	// TODO(Iceber): Split into a new struct, that could maybe be named discoveryCache
-	cacheLock     sync.RWMutex
+	cacheLock sync.RWMutex
+	// 通过 discoveryClient.ServerGroups 获取所有的 group 和对应的 versions，然后记录到这里
 	groupVersions map[string][]string
 
 	customResourceGroups sets.Set[string]
@@ -45,6 +47,8 @@ type DynamicDiscoveryManager struct {
 
 	// only include kube resources and aggregator resources,
 	// not have custom resources
+	//
+	// 主要用于 syncResources.resources 为 * 的情况
 	resourceVersions map[schema.GroupResource][]string
 	apiResources     map[schema.GroupResource]metav1.APIResource
 
@@ -247,6 +251,7 @@ retry:
 		c.resourceMutationHandler()
 		c.dirty.Store(false)
 	}
+	// 实际执行的是 synchro.syncResourcesRefresher()
 	c.afterStartFunc(stopCh)
 
 	wg.Wait()

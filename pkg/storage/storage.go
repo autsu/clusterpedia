@@ -10,6 +10,7 @@ import (
 	internal "github.com/clusterpedia-io/api/clusterpedia"
 )
 
+// StorageFactory
 type StorageFactory interface {
 	// Currently only supports returning a union of verbs for all resources,
 	// in the future it may be necessary to return verbs depending on different resources.
@@ -20,6 +21,7 @@ type StorageFactory interface {
 	GetResourceVersions(ctx context.Context, cluster string) (map[schema.GroupVersionResource]map[string]interface{}, error)
 	GetCollectionResources(ctx context.Context) ([]*internal.CollectionResource, error)
 
+	// NewResourceStorage 根据 config 创建出 ResourceStorage，由 ResourceStorage 来完成存储层的 crud 操作
 	NewResourceStorage(config *ResourceStorageConfig) (ResourceStorage, error)
 	NewCollectionResourceStorage(cr *internal.CollectionResource) (CollectionResourceStorage, error)
 
@@ -27,6 +29,7 @@ type StorageFactory interface {
 	CleanClusterResource(ctx context.Context, cluster string, gvr schema.GroupVersionResource) error
 }
 
+// ResourceStorage 是抽象出来的几种 CRUD 方法，来存储和检索集群资源
 type ResourceStorage interface {
 	GetStorageConfig() *ResourceStorageConfig
 

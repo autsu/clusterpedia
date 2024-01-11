@@ -40,7 +40,9 @@ func NewStorageFactory(configPath string) (storage.StorageFactory, error) {
 		return nil, err
 	}
 
+	// gorm 抽象出来的连接接口
 	var dialector gorm.Dialector
+	// 然后根据数据库类型来建立对应的 Dialector
 	switch cfg.Type {
 	case "mysql":
 		mysqlConfig, err := cfg.genMySQLConfig()
@@ -78,6 +80,7 @@ func NewStorageFactory(configPath string) (storage.StorageFactory, error) {
 		return nil, err
 	}
 
+	// 然后建立连接，并设置一些数据库相关的配置参数（最大空闲连接数之类的）
 	db, err := gorm.Open(dialector, &gorm.Config{SkipDefaultTransaction: true, Logger: logger})
 	if err != nil {
 		return nil, err
@@ -94,10 +97,12 @@ func NewStorageFactory(configPath string) (storage.StorageFactory, error) {
 	sqlDB.SetMaxOpenConns(connPool.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(connPool.ConnMaxLifetime)
 
+	// 最后创建出 Resource 这张表
 	if err := db.AutoMigrate(&Resource{}); err != nil {
 		return nil, err
 	}
 
+	// 最后构建出 StorageFactory 这个对象，并填充 db 字段
 	return &StorageFactory{db}, nil
 }
 

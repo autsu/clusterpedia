@@ -14,7 +14,8 @@ type ResourceVersionInformer interface {
 type resourceVersionInformer struct {
 	name string
 	// 没太搞懂这个缓存的作用
-	storage       *ResourceVersionStorage
+	storage *ResourceVersionStorage
+	// 实际传入的是 ResourceSynchro
 	handler       ResourceEventHandler
 	controller    cache.Controller
 	listerWatcher cache.ListerWatcher

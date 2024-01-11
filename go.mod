@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/clusterpedia-io/api v0.0.0
+	github.com/clusterpedia-io/api v0.7.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.13.0
@@ -165,7 +165,7 @@ require (
 )
 
 replace (
-	github.com/clusterpedia-io/api => ./staging/src/github.com/clusterpedia-io/api
+	//github.com/clusterpedia-io/api => ./staging/src/github.com/clusterpedia-io/api
 	k8s.io/api => k8s.io/api v0.28.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.4
 	k8s.io/apimachinery => k8s.io/apimachinery v0.28.4

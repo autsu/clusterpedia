@@ -30,6 +30,7 @@ func (c *DynamicDiscoveryManager) GetAndFetchServerVersion() (version.Info, erro
 	return c.version.Load().(version.Info), nil
 }
 
+// 获取当前的 server version 并更新 c.version
 func (c *DynamicDiscoveryManager) fetchServerVersion() (bool, error) {
 	serverVersion, err := c.discovery.ServerVersion()
 	if err != nil {
