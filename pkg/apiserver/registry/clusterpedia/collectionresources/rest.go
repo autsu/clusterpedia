@@ -30,7 +30,14 @@ import (
 type REST struct {
 	serializer runtime.NegotiatedSerializer
 
-	list     *internal.CollectionResourceList
+	// List 接口会返回这个 object
+	list *internal.CollectionResourceList
+	// storages 存的 key 如下：
+	// CollectionResourceAny           = "any"
+	// CollectionResourceWorkloads     = "workloads"
+	// CollectionResourceKubeResources = "kuberesources"
+	//
+	// val 实际是 internalstorage.CollectionResourceStorage 类型
 	storages map[string]storage.CollectionResourceStorage
 }
 
@@ -41,6 +48,8 @@ var _ rest.Storage = &REST{}
 var _ rest.SingularNameProvider = &REST{}
 
 func NewREST(serializer runtime.NegotiatedSerializer, factory storage.StorageFactory) *REST {
+	// 对于数据库类型的 factory 而言， 这个方法实际拿到的 crs 是
+	// internalstorage.collectionResources，是一个写死的值
 	crs, err := factory.GetCollectionResources(context.TODO())
 	if err != nil {
 		klog.Fatal(err)
@@ -66,6 +75,7 @@ func NewREST(serializer runtime.NegotiatedSerializer, factory storage.StorageFac
 			}
 		}
 
+		// NewCollectionResourceStorage 根据传入的 cr 里面的所有 GVR 构建出查询条件
 		storage, err := factory.NewCollectionResourceStorage(cr)
 		if err != nil {
 			continue
@@ -74,7 +84,7 @@ func NewREST(serializer runtime.NegotiatedSerializer, factory storage.StorageFac
 		list.Items = append(list.Items, *cr)
 	}
 
-	return &REST{serializer, list, storages}
+	return &REST{serializer: serializer, list: list, storages: storages}
 }
 
 func (s *REST) New() runtime.Object {
@@ -102,8 +112,14 @@ func (s *REST) List(ctx context.Context, options *metainternal.ListOptions) (run
 }
 
 func (s *REST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	// scheme 给这个类型注册了 url.Values 到外部 Struct，以及外部 Struct 到
+	// 内部 Struct 的转换函数
+	// 就是下面这两个：
+	// Convert_url_Values_To_v1_ListOptions
+	// Convert_v1beta1_ListOptions_To_clusterpedia_ListOptions
 	var opts internal.ListOptions
 	query := request.RequestQueryFrom(ctx)
+	// 然后这里就可以将 query 转换为 internal.Struct 了
 	if err := scheme.ParameterCodec.DecodeParameters(query, v1beta1.SchemeGroupVersion, &opts); err != nil {
 		return nil, err
 	}
@@ -122,6 +138,7 @@ func (s *REST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runt
 		}
 	}
 
+	// 这里的 name 应该是 "any", "workloads", "kuberesources" 中的某一个
 	storage, ok := s.storages[name]
 	if !ok {
 		return nil, apierrors.NewNotFound(

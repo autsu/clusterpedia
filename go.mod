@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
-	github.com/clusterpedia-io/api v0.7.1
+	github.com/clusterpedia-io/api v0.8.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/jackc/pgconn v1.13.0

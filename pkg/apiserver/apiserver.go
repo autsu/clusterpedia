@@ -149,6 +149,8 @@ func (config completedConfig) New() (*ClusterPediaServer, error) {
 	}
 
 	v1beta1storage := map[string]rest.Storage{}
+	// /apis/clusterpedia.io/v1beta1/resources/apis/apps/v1/deployments		-> List
+	// /apis/clusterpedia.io/v1beta1/resources/apis/apps/v1/deployments/nginx  -> Get
 	v1beta1storage["resources"] = resources.NewREST(kubeResourceAPIServer.Handler)
 	v1beta1storage["collectionresources"] = collectionresources.NewREST(config.GenericConfig.Serializer, config.StorageFactory)
 

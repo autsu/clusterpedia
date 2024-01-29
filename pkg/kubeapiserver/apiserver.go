@@ -123,6 +123,7 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	discoveryManager := discovery.NewDiscoveryManager(c.GenericConfig.Serializer, restManager, delegate)
 
 	// handle root discovery request
+	// 暂时没搞懂这两个路由是干嘛的
 	genericserver.Handler.NonGoRestfulMux.Handle("/api", discoveryManager)
 	genericserver.Handler.NonGoRestfulMux.Handle("/apis", discoveryManager)
 
@@ -134,6 +135,7 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		discovery:     discoveryManager,
 		clusterLister: c.ExtraConfig.InformerFactory.Cluster().V1alpha2().PediaClusters().Lister(),
 	}
+	// 貌似查询 DB 主要是走这两个路由
 	genericserver.Handler.NonGoRestfulMux.HandlePrefix("/api/", resourceHandler)
 	genericserver.Handler.NonGoRestfulMux.HandlePrefix("/apis/", resourceHandler)
 

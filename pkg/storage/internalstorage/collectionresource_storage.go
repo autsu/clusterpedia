@@ -28,6 +28,8 @@ type CollectionResourceStorage struct {
 	collectionResource *internal.CollectionResource
 }
 
+// NewCollectionResourceStorage 根据传入的 cr 里面的所有 GVR 构建出查询条件
+// （字段为 typesQuery, 类型为 gorm.DB）
 func NewCollectionResourceStorage(db *gorm.DB, cr *internal.CollectionResource) storage.CollectionResourceStorage {
 	storage := &CollectionResourceStorage{db: db, collectionResource: cr.DeepCopy()}
 	if len(cr.ResourceTypes) == 0 {
@@ -36,6 +38,7 @@ func NewCollectionResourceStorage(db *gorm.DB, cr *internal.CollectionResource) 
 
 	typesQuery := db
 	groups := make([]string, 0)
+	// cr 里面存储了多个 gvr，把这些资源全部查询出来
 	for _, rt := range cr.ResourceTypes {
 		if rt.Resource == "" && rt.Version == "" {
 			groups = append(groups, rt.Group)

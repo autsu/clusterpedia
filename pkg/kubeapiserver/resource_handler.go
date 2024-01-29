@@ -30,7 +30,11 @@ type ResourceHandler struct {
 	clusterLister clusterlister.PediaClusterLister
 }
 
+// 查询貌似主要是走这个函数
 func (r *ResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// /apis/clusterpedia.io/v1beta1/resources/apis/apps/v1/deployments		-> List
+	// /apis/clusterpedia.io/v1beta1/resources/apis/apps/v1/deployments/nginx  -> Get
+	// 调用 RequestInfoFrom 拿到请求信息，比如可以根据请求格式，拿到 verb
 	requestInfo, ok := genericrequest.RequestInfoFrom(req.Context())
 	if !ok {
 		responsewriters.ErrorNegotiated(
@@ -53,6 +57,7 @@ func (r *ResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		err     error
 	)
 	// When clusterName not empty, first check cluster whether exist
+	// 可以看到查询的 cluster 实际是根据 PediaCluster 的名字来查的
 	clusterName := request.ClusterNameValue(req.Context())
 	if clusterName != "" {
 		if cluster, err = r.clusterLister.Get(clusterName); err != nil {
@@ -94,6 +99,8 @@ func (r *ResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Check the health of the cluster
+	// 如果查询条件指定了 cluster，那么会查一下该 cluster 的健康状态
+	// 如果不健康，会添加一个 warning
 	if cluster != nil {
 		var msg string
 		healthyCondition := meta.FindStatusCondition(cluster.Status.Conditions, clusterv1alpha2.ClusterHealthyCondition)
@@ -125,9 +132,10 @@ func (r *ResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			)
 			return
 		}
-
+		// 这里的 GetResource 是 k8s 标准库里面的函数，它会进一步调用 storage.Get 方法
 		handler = handlers.GetResource(storage, reqScope)
 	case "list":
+		// 这里的 ListResource 是 k8s 标准库里面的函数，它会进一步调用 storage.List 方法
 		handler = handlers.ListResource(storage, nil, reqScope, false, r.minRequestTimeout)
 	case "watch":
 		handler = handlers.ListResource(storage, storage, reqScope, true, r.minRequestTimeout)

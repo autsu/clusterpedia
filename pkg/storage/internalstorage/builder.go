@@ -83,6 +83,7 @@ func (jsonQuery *JSONQueryExpression) writeJSONKeyWithCAST_TO_TEXT(builder claus
 	writeString(builder, " as TEXT)")
 }
 
+// Build 实现了 gorm 的 Expression 接口
 func (jsonQuery *JSONQueryExpression) Build(builder clause.Builder) {
 	if len(jsonQuery.keys) == 0 {
 		return
