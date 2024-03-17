@@ -33,3 +33,5 @@ apiserver.local.config
 
 # SQLite DB Files
 *.db
+
+.test
