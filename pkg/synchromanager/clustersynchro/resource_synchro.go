@@ -315,6 +315,7 @@ func (synchro *ResourceSynchro) pruneObject(obj *unstructured.Unstructured) {
 }
 
 func (synchro *ResourceSynchro) OnAdd(obj interface{}, isInInitialList bool) {
+	// 存储组件异常，那么监听到的事件会直接扔掉
 	if !synchro.isRunnableForStorage.Load() {
 		return
 	}
@@ -471,6 +472,7 @@ func (synchro *ResourceSynchro) handleResourceEvent(event *queue.Event) {
 			if synchro.isRunnableForStorage.Load() {
 				synchro.setStopForStorage()
 			}
+			// 队列只保留 5 条，其他全部扔掉
 			synchro.queue.DiscardAndRetain(retainInQueue)
 
 			// If the data in the queue is discarded,

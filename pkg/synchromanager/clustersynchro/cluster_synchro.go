@@ -47,8 +47,12 @@ type ClusterSynchro struct {
 	closed    chan struct{}
 
 	updateStatusCh chan struct{}
-	startRunnerCh  chan struct{}
-	stopRunnerCh   chan struct{}
+	// 这两个 chan 用来控制集群同步资源的启停
+	// 触发的时机是根据集群健康状态来判断的
+	// 当集群的健康检查失败了，会执行 synchro.stopRunner() 停止同步资源的相关操作
+	// 集群健康检查成功，执行 synchro.startRunner()
+	startRunnerCh chan struct{}
+	stopRunnerCh  chan struct{}
 
 	waitGroup wait.Group
 
@@ -451,7 +455,10 @@ func (s *ClusterSynchro) runner() {
 
 	for {
 		select {
+		// 等待，直到下面的某一个 ch 发生了事件
+		// start 事件则继续走下面的流程，进行集群资源同步操作
 		case <-s.startRunnerCh:
+		// 如果是 closer 事件，直接 return 掉
 		case <-s.closer:
 			return
 		}
@@ -475,7 +482,7 @@ func (s *ClusterSynchro) runner() {
 				case <-s.closer:
 				case <-s.stopRunnerCh:
 				}
-
+				// 如果 s.closer 或者 s.stopRunnerCh 发生事件，则会走到这里
 				close(s.handlerStopCh)
 			}()
 
@@ -487,6 +494,7 @@ func (s *ClusterSynchro) runner() {
 			})
 		}()
 
+		// 如果发生了 stop 事件，那么就会走下一次循环，进行重试操作
 		<-s.handlerStopCh
 		klog.InfoS("dynamic discovery manager and resource synchros are stopping", "cluster", s.name)
 	}

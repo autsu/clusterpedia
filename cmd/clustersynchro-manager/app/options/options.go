@@ -132,6 +132,9 @@ func (o *Options) Config() (*config.Config, error) {
 		return nil, err
 	}
 
+	if o.Kubeconfig == "" {
+		o.Kubeconfig = clientcmd.RecommendedHomeFile
+	}
 	kubeconfig, err := clientcmd.BuildConfigFromFlags(o.Master, o.Kubeconfig)
 	if err != nil {
 		return nil, err

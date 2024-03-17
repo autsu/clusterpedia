@@ -11,7 +11,7 @@ metadata:
 data:
   internalstorage-config.yaml: |
     type: "mysql"
-    host: "10.106.125.84"
+    host: "mysql.default.svc.cluster.local"
     port: 3306
     user: root
     database: "clusterpedia"

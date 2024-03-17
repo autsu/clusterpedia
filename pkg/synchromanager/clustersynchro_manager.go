@@ -162,6 +162,7 @@ func (manager *Manager) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (manager *Manager) addCluster(obj interface{}) {
+	klog.Info("add pediacluster")
 	manager.enqueue(obj)
 }
 
