@@ -2,6 +2,8 @@ package options
 
 import (
 	"fmt"
+	"github.com/IBM/sarama"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,6 +46,7 @@ type Options struct {
 	Storage          *storageoptions.StorageOptions
 	Metrics          *metrics.Options
 	KubeStateMetrics *kubestatemetrics.Options
+	KafkaBrokerList  string
 
 	WorkerNumber            int // WorkerNumber is the number of worker goroutines
 	PageSizeForResourceSync int64
@@ -101,6 +104,7 @@ func (o *Options) Flags() cliflag.NamedFlagSets {
 	fs := fss.FlagSet("misc")
 	fs.StringVar(&o.Master, "master", o.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig).")
 	fs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to kubeconfig file with authorization and master location information.")
+	fs.StringVar(&o.KafkaBrokerList, "broker-list", o.KafkaBrokerList, "kafka broker address")
 
 	logsapi.AddFlags(o.Logs, fss.FlagSet("logs"))
 
@@ -166,6 +170,16 @@ func (o *Options) Config() (*config.Config, error) {
 		o.LeaderElection.ResourceName = fmt.Sprintf("%s-%s", o.LeaderElection.ResourceName, o.ShardingName)
 	}
 
+	kcfg := sarama.NewConfig()
+	kcfg.Producer.RequiredAcks = sarama.WaitForAll
+	kcfg.Producer.Retry.Max = 10
+	kcfg.Producer.Return.Successes = true
+
+	producer, err := sarama.NewSyncProducer(strings.Split(o.KafkaBrokerList, ","), kcfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return &config.Config{
 		CRDClient:     crdclient,
 		Kubeconfig:    kubeconfig,
@@ -174,6 +188,7 @@ func (o *Options) Config() (*config.Config, error) {
 		StorageFactory: storagefactory,
 		WorkerNumber:   o.WorkerNumber,
 		ShardingName:   o.ShardingName,
+		Kafka:          producer,
 
 		MetricsServerConfig:     metricsConfig,
 		KubeMetricsServerConfig: kubeStateMetricsServerConfig,

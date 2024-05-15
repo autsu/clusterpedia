@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/IBM/sarama"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -31,7 +32,8 @@ type ClusterSyncConfig struct {
 }
 
 type ClusterSynchro struct {
-	name string
+	name    string
+	cluster *clusterv1alpha2.PediaCluster
 
 	RESTConfig           *rest.Config
 	ClusterStatusUpdater ClusterStatusUpdater
@@ -41,6 +43,7 @@ type ClusterSynchro struct {
 	healthChecker        *healthChecker
 	dynamicDiscovery     discovery.DynamicDiscoveryInterface
 	listerWatcherFactory informer.DynamicListerWatcherFactory
+	kafka                sarama.SyncProducer
 
 	closeOnce sync.Once
 	closer    chan struct{}
@@ -74,7 +77,7 @@ type ClusterStatusUpdater interface {
 
 type RetryableError error
 
-func New(name string, config *rest.Config, storage storage.StorageFactory, updater ClusterStatusUpdater, syncConfig ClusterSyncConfig) (*ClusterSynchro, error) {
+func New(name string, cluster *clusterv1alpha2.PediaCluster, config *rest.Config, storage storage.StorageFactory, updater ClusterStatusUpdater, syncConfig ClusterSyncConfig, kafka sarama.SyncProducer) (*ClusterSynchro, error) {
 	dynamicDiscovery, err := discovery.NewDynamicDiscoveryManager(name, config)
 	if err != nil {
 		return nil, RetryableError(fmt.Errorf("failed to create dynamic discovery manager: %w", err))
@@ -104,9 +107,11 @@ func New(name string, config *rest.Config, storage storage.StorageFactory, updat
 
 	synchro := &ClusterSynchro{
 		name:                 name,
+		cluster:              cluster,
 		RESTConfig:           config,
 		ClusterStatusUpdater: updater,
 		storage:              storage,
+		kafka:                kafka,
 
 		syncConfig:           syncConfig,
 		healthChecker:        healthChecker,
@@ -359,7 +364,7 @@ func (s *ClusterSynchro) refreshSyncResources() {
 			if s.syncConfig.MetricsStoreBuilder != nil {
 				metricsStore = s.syncConfig.MetricsStoreBuilder.GetMetricStore(s.name, config.syncResource)
 			}
-			synchro := newResourceSynchro(s.name,
+			synchro := newResourceSynchro(s.name, s.cluster,
 				ResourceSynchroConfig{
 					GroupVersionResource: config.syncResource,
 					Kind:                 config.kind,
@@ -369,6 +374,7 @@ func (s *ClusterSynchro) refreshSyncResources() {
 					MetricsStore:         metricsStore,
 					ResourceVersions:     rvs,
 					PageSizeForInformer:  s.syncConfig.PageSizeForResourceSync,
+					kafka:                s.kafka,
 				},
 			)
 			s.waitGroup.StartWithChannel(s.closer, synchro.Run)
