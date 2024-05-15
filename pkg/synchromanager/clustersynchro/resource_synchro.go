@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/IBM/sarama"
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +22,7 @@ import (
 	clusterv1alpha2 "github.com/clusterpedia-io/api/cluster/v1alpha2"
 	kubestatemetrics "github.com/clusterpedia-io/clusterpedia/pkg/kube_state_metrics"
 	"github.com/clusterpedia-io/clusterpedia/pkg/storage"
+	"github.com/clusterpedia-io/clusterpedia/pkg/synchromanager/clustersynchro/cmdb"
 	"github.com/clusterpedia-io/clusterpedia/pkg/synchromanager/clustersynchro/informer"
 	"github.com/clusterpedia-io/clusterpedia/pkg/synchromanager/clustersynchro/queue"
 	"github.com/clusterpedia-io/clusterpedia/pkg/synchromanager/features"
@@ -35,6 +37,7 @@ type ResourceSynchroConfig struct {
 	cache.ListerWatcher
 	runtime.ObjectConvertor
 	storage.ResourceStorage
+	kafka sarama.SyncProducer
 
 	*kubestatemetrics.MetricsStore
 
@@ -47,11 +50,13 @@ func (c ResourceSynchroConfig) GroupVersionKind() schema.GroupVersionKind {
 }
 
 type ResourceSynchro struct {
-	cluster string
+	cluster      string
+	pediaCluster *clusterv1alpha2.PediaCluster
 
 	example         runtime.Object
 	syncResource    schema.GroupVersionResource
 	storageResource schema.GroupVersionResource
+	kafka           sarama.SyncProducer
 
 	pageSize          int64
 	listerWatcher     cache.ListerWatcher
@@ -88,12 +93,14 @@ type ResourceSynchro struct {
 	runningStage string
 }
 
-func newResourceSynchro(cluster string, config ResourceSynchroConfig) *ResourceSynchro {
+func newResourceSynchro(cluster string, pediaCluster *clusterv1alpha2.PediaCluster, config ResourceSynchroConfig) *ResourceSynchro {
 	storageConfig := config.ResourceStorage.GetStorageConfig()
 	synchro := &ResourceSynchro{
 		cluster:         cluster,
+		pediaCluster:    pediaCluster,
 		syncResource:    config.GroupVersionResource,
 		storageResource: storageConfig.StorageGroupResource.WithVersion(storageConfig.StorageVersion.Version),
+		kafka:           config.kafka,
 
 		pageSize:      config.PageSizeForInformer,
 		listerWatcher: config.ListerWatcher,
@@ -536,6 +543,7 @@ func (synchro *ResourceSynchro) convertToStorageVersion(obj runtime.Object) (run
 }
 
 func (synchro *ResourceSynchro) createOrUpdateResource(ctx context.Context, obj runtime.Object) error {
+	cmdb.PutResource(synchro.pediaCluster, synchro.kafka, obj)
 	err := synchro.storage.Create(ctx, synchro.cluster, obj)
 	if genericstorage.IsExist(err) {
 		return synchro.storage.Update(ctx, synchro.cluster, obj)
@@ -544,6 +552,7 @@ func (synchro *ResourceSynchro) createOrUpdateResource(ctx context.Context, obj 
 }
 
 func (synchro *ResourceSynchro) updateOrCreateResource(ctx context.Context, obj runtime.Object) error {
+	synchro.kafka.SendMessage()
 	err := synchro.storage.Update(ctx, synchro.cluster, obj)
 	if genericstorage.IsNotFound(err) {
 		return synchro.storage.Create(ctx, synchro.cluster, obj)
@@ -552,6 +561,7 @@ func (synchro *ResourceSynchro) updateOrCreateResource(ctx context.Context, obj 
 }
 
 func (synchro *ResourceSynchro) deleteResource(ctx context.Context, obj runtime.Object) error {
+	synchro.kafka.SendMessage()
 	return synchro.storage.Delete(ctx, synchro.cluster, obj)
 }
 

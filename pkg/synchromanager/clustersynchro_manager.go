@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/IBM/sarama"
 	"math"
 	"math/rand"
 	"reflect"
@@ -54,6 +55,7 @@ type Manager struct {
 	clusterlister              clusterlister.PediaClusterLister
 	clusterSyncResourcesLister clusterlister.ClusterSyncResourcesLister
 	clusterInformer            cache.SharedIndexInformer
+	kafka                      sarama.SyncProducer
 
 	clusterSyncConfig clustersynchro.ClusterSyncConfig
 	synchrolock       sync.RWMutex
@@ -63,7 +65,7 @@ type Manager struct {
 
 var _ kubestatemetrics.ClusterMetricsWriterListGetter = &Manager{}
 
-func NewManager(client crdclientset.Interface, storage storage.StorageFactory, syncConfig clustersynchro.ClusterSyncConfig, shardingName string) *Manager {
+func NewManager(client crdclientset.Interface, storage storage.StorageFactory, syncConfig clustersynchro.ClusterSyncConfig, shardingName string, kafka sarama.SyncProducer) *Manager {
 	factory := externalversions.NewSharedInformerFactory(client, 0)
 	clusterinformer := factory.Cluster().V1alpha2().PediaClusters()
 	clusterSyncResourcesInformer := factory.Cluster().V1alpha2().ClusterSyncResources()
@@ -83,6 +85,7 @@ func NewManager(client crdclientset.Interface, storage storage.StorageFactory, s
 
 		clusterSyncConfig: syncConfig,
 		synchros:          make(map[string]*clustersynchro.ClusterSynchro),
+		kafka:             kafka,
 	}
 
 	if _, err := clusterinformer.Informer().AddEventHandler(
@@ -388,7 +391,7 @@ func (manager *Manager) reconcileCluster(cluster *clusterv1alpha2.PediaCluster) 
 
 	// create resource synchro
 	if synchro == nil {
-		synchro, err = clustersynchro.New(cluster.Name, config, manager.storage, manager, manager.clusterSyncConfig)
+		synchro, err = clustersynchro.New(cluster.Name, cluster, config, manager.storage, manager, manager.clusterSyncConfig, manager.kafka)
 		if err != nil {
 			_, forever := err.(clustersynchro.RetryableError)
 			klog.ErrorS(err, "Failed to create cluster synchro", "cluster", cluster.Name)

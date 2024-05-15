@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/IBM/sarama"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	componentbaseconfig "k8s.io/component-base/config"
@@ -23,6 +24,7 @@ type Config struct {
 	KubeMetricsServerConfig *kubestatemetrics.ServerConfig
 	StorageFactory          storage.StorageFactory
 	ClusterSyncConfig       clustersynchro.ClusterSyncConfig
+	Kafka                   sarama.SyncProducer
 
 	LeaderElection   componentbaseconfig.LeaderElectionConfiguration
 	ClientConnection componentbaseconfig.ClientConnectionConfiguration
